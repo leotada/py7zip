@@ -2,6 +2,6 @@
 7-Zip front-end in GTK3
 
 # TODO
-- List View with itens
+- Select output file location
 - More compression options
 - Drag and drop support
