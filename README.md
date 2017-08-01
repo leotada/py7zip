@@ -3,5 +3,6 @@
 
 # TODO
 - Select output file location
+- Progress bar
 - More compression options
 - Drag and drop support
