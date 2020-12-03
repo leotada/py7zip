@@ -1,8 +1,10 @@
+import multiprocessing
+
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
-import subprocess
-import threading
+
+from zipcontroller import ZipController
 
 
 class Py7zip(Gtk.Window):
@@ -17,27 +19,32 @@ class Py7zip(Gtk.Window):
         box0.add(box1)
         self.add(box0)
 
-        button1 = Gtk.Button("Adicionar Arquivo")
-        button1.connect("clicked", self.on_file_clicked)
-        box1.add(button1)
+        button_add_file = Gtk.Button("Adicionar Arquivo")
+        button_add_file.connect("clicked", self.on_file_clicked)
+        box1.add(button_add_file)
 
-        button2 = Gtk.Button("Adicionar Pasta")
-        button2.connect("clicked", self.on_folder_clicked)
-        box1.add(button2)
+        button_add_folder = Gtk.Button("Adicionar Pasta")
+        button_add_folder.connect("clicked", self.on_folder_clicked)
+        box1.add(button_add_folder)
 
         self.entry_name = Gtk.Entry()
-        # self.entry_name.set_text("basic")
         self.entry_name.set_placeholder_text("Nome do arquivo de saída")
         self.entry_name.set_width_chars(50)
         box1.add(self.entry_name)
 
-        button3 = Gtk.Button("Comprimir")
-        button3.connect("clicked", self.compress)
-        box1.add(button3)
+        button_output = Gtk.Button("Pasta de saída")
+        button_output.connect("clicked", self.on_output_folder_clicked)
+        box1.add(button_output)
 
-        self.checkbox_multi = Gtk.CheckButton("Multithread")
-        self.checkbox_multi.set_active(True)
-        box1.add(self.checkbox_multi)
+        label_threads = Gtk.Label("Threads")
+        box1.add(label_threads)
+
+        self.button_threads = Gtk.SpinButton()
+        self.button_threads.set_numeric(True)
+        self.button_threads.set_range(1, 32)
+        self.button_threads.set_increments(1, 1)
+        self.button_threads.set_value(multiprocessing.cpu_count())
+        box1.add(self.button_threads)
 
         self.store = Gtk.ListStore(str)
         tree = Gtk.TreeView(self.store)
@@ -46,39 +53,23 @@ class Py7zip(Gtk.Window):
         tree.append_column(column)
         box0.pack_start(tree, True, True, 0)
 
-        button4 = Gtk.Button("Limpar")
-        button4.connect("clicked", self.clean)
-        box0.add(button4)
+        box_bottom_buttons = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        box0.add(box_bottom_buttons)
 
-    def do_subprocess(self, call):
-        subprocess.check_call(call)
-        self.entry_name.set_text("Pronto!")
+        button_compress = Gtk.Button("Comprimir")
+        button_compress.connect("clicked", self.compress)
+        box_bottom_buttons.add(button_compress)
 
-    def start_thread(self, call):
-        t = threading.Thread(target=self.do_subprocess, kwargs={'call': call})
-        t.start()
-
-    def compress(self, widget):
-        if len(self.file_list) > 0:
-            outname = self.entry_name.get_text() if self.entry_name.get_text() != '' else 'defaultname'
-            multi = self.checkbox_multi.get_active()
-            call = ["7za", "a", "-r", "-t7z", "-m0=LZMA2",
-                    "-mmt=on" if multi else "-mmt=off",
-                    outname + ".7z"]
-            for i in self.file_list:
-                call.append(str(i))
-            # call
-            self.start_thread(call)
-            print("Done")
-        else:
-            print("Selecione um arquivo.")
+        button_clear = Gtk.Button("Limpar")
+        button_clear.connect("clicked", self.clean)
+        box_bottom_buttons.add(button_clear)
 
     def clean(self, widget):
         self.file_list.clear()
         self.store.clear()
 
     def on_file_clicked(self, widget):
-        dialog = Gtk.FileChooserDialog("Please choose a file", self,
+        dialog = Gtk.FileChooserDialog("Selecione um arquivo", self,
             Gtk.FileChooserAction.OPEN,
             (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
              Gtk.STOCK_OPEN, Gtk.ResponseType.OK))
@@ -88,13 +79,9 @@ class Py7zip(Gtk.Window):
 
         response = dialog.run()
         if response == Gtk.ResponseType.OK:
-            print("Open clicked")
             self.file_list += dialog.get_filenames()
             for i in dialog.get_filenames():
                 self.store.append([i])
-            print("Files selected: ", dialog.get_filenames())
-        elif response == Gtk.ResponseType.CANCEL:
-            print("Cancel clicked")
 
         dialog.destroy()
 
@@ -105,7 +92,7 @@ class Py7zip(Gtk.Window):
         dialog.add_filter(filter_any)
 
     def on_folder_clicked(self, widget):
-        dialog = Gtk.FileChooserDialog("Please choose a folder", self,
+        dialog = Gtk.FileChooserDialog("Selecione uma pasta", self,
             Gtk.FileChooserAction.SELECT_FOLDER,
             (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
              "Select", Gtk.ResponseType.OK))
@@ -114,17 +101,36 @@ class Py7zip(Gtk.Window):
 
         response = dialog.run()
         if response == Gtk.ResponseType.OK:
-            print("Select clicked")
             self.file_list += dialog.get_filenames()
-            for i in dialog.get_filenames():
-                self.store.append([i])
-            print("Folder selected: " + dialog.get_filename())
-        elif response == Gtk.ResponseType.CANCEL:
-            print("Cancel clicked")
+            for filename in dialog.get_filenames():
+                self.store.append([filename])
 
         dialog.destroy()
 
-win = Py7zip()
-win.connect("delete-event", Gtk.main_quit)
-win.show_all()
-Gtk.main()
+    def on_output_folder_clicked(self, widget):
+        dialog = Gtk.FileChooserDialog("Selecione uma pasta de saída", self,
+            Gtk.FileChooserAction.SAVE,
+            (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+             "Select", Gtk.ResponseType.OK))
+        dialog.set_default_size(800, 400)
+        dialog.set_select_multiple(False)
+
+        response = dialog.run()
+        if response == Gtk.ResponseType.OK:
+            output_filename = dialog.get_filename()
+            if not output_filename.endswith('.7z'):
+                output_filename = output_filename + '.7z'
+            self.entry_name.set_text(output_filename)
+        dialog.destroy()
+
+    def compress(self, widget):
+        output = self.entry_name.get_text()
+        if len(self.file_list) > 0 and output != '':
+            multithread = self.button_threads.get_value_as_int()
+            ZipController().compress(self.file_list, output, multithread)
+
+if __name__ == '__main__':
+    app_window = Py7zip()
+    app_window.connect("delete-event", Gtk.main_quit)
+    app_window.show_all()
+    Gtk.main()
