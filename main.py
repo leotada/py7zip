@@ -19,16 +19,15 @@ class Py7zip(Gtk.Window):
         box0.add(box1)
         self.add(box0)
 
-        button1 = Gtk.Button("Adicionar Arquivo")
-        button1.connect("clicked", self.on_file_clicked)
-        box1.add(button1)
+        button_add_file = Gtk.Button("Adicionar Arquivo")
+        button_add_file.connect("clicked", self.on_file_clicked)
+        box1.add(button_add_file)
 
-        button2 = Gtk.Button("Adicionar Pasta")
-        button2.connect("clicked", self.on_folder_clicked)
-        box1.add(button2)
+        button_add_folder = Gtk.Button("Adicionar Pasta")
+        button_add_folder.connect("clicked", self.on_folder_clicked)
+        box1.add(button_add_folder)
 
         self.entry_name = Gtk.Entry()
-        # self.entry_name.set_text("basic")
         self.entry_name.set_placeholder_text("Nome do arquivo de saída")
         self.entry_name.set_width_chars(50)
         box1.add(self.entry_name)
@@ -36,10 +35,6 @@ class Py7zip(Gtk.Window):
         button_output = Gtk.Button("Pasta de saída")
         button_output.connect("clicked", self.on_output_folder_clicked)
         box1.add(button_output)
-
-        button3 = Gtk.Button("Comprimir")
-        button3.connect("clicked", self.compress)
-        box1.add(button3)
 
         label_threads = Gtk.Label("Threads")
         box1.add(label_threads)
@@ -58,9 +53,16 @@ class Py7zip(Gtk.Window):
         tree.append_column(column)
         box0.pack_start(tree, True, True, 0)
 
-        button4 = Gtk.Button("Limpar")
-        button4.connect("clicked", self.clean)
-        box0.add(button4)
+        box_bottom_buttons = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        box0.add(box_bottom_buttons)
+
+        button_compress = Gtk.Button("Comprimir")
+        button_compress.connect("clicked", self.compress)
+        box_bottom_buttons.add(button_compress)
+
+        button_clear = Gtk.Button("Limpar")
+        button_clear.connect("clicked", self.clean)
+        box_bottom_buttons.add(button_clear)
 
     def clean(self, widget):
         self.file_list.clear()
