@@ -1,8 +1,9 @@
 import multiprocessing
+import urllib.parse
 
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk
+from gi.repository import Gdk, GLib, Gtk
 
 from zipcontroller import ZipController
 
@@ -46,11 +47,24 @@ class Py7zip(Gtk.Window):
         self.button_threads.set_value(multiprocessing.cpu_count())
         box1.add(self.button_threads)
 
+        label_level = Gtk.Label("Level")
+        box1.add(label_level)
+
+        self.button_level = Gtk.SpinButton()
+        self.button_level.set_numeric(True)
+        self.button_level.set_range(0, 9)
+        self.button_level.set_increments(1, 1)
+        self.button_level.set_value(5)
+        box1.add(self.button_level)
+
         self.store = Gtk.ListStore(str)
         tree = Gtk.TreeView(self.store)
         renderer = Gtk.CellRendererText()
         column = Gtk.TreeViewColumn("Arquivos", renderer, text=0)
         tree.append_column(column)
+        tree.drag_dest_set(Gtk.DestDefaults.ALL, [], Gdk.DragAction.COPY)
+        tree.drag_dest_add_uri_targets()
+        tree.connect("drag-data-received", self.on_drag_data_received)
         box0.pack_start(tree, True, True, 0)
 
         box_bottom_buttons = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
@@ -63,6 +77,10 @@ class Py7zip(Gtk.Window):
         button_clear = Gtk.Button("Limpar")
         button_clear.connect("clicked", self.clean)
         box_bottom_buttons.add(button_clear)
+
+        self.progress_bar = Gtk.ProgressBar()
+        self.progress_bar.set_show_text(True)
+        box0.add(self.progress_bar)
 
     def clean(self, widget):
         self.file_list.clear()
@@ -127,7 +145,18 @@ class Py7zip(Gtk.Window):
         output = self.entry_name.get_text()
         if len(self.file_list) > 0 and output != '':
             multithread = self.button_threads.get_value_as_int()
-            ZipController().compress(self.file_list, output, multithread)
+            level = self.button_level.get_value_as_int()
+            self.progress_bar.set_fraction(0)
+            ZipController().compress(self.file_list, output, multithread, level,
+                                     progress_callback=lambda f: GLib.idle_add(self.progress_bar.set_fraction, f))
+
+    def on_drag_data_received(self, widget, drag_context, x, y, data, info, time):
+        for uri in data.get_uris():
+            path = urllib.parse.urlparse(uri).path
+            path = urllib.parse.unquote(path)
+            if path not in self.file_list:
+                self.file_list.append(path)
+                self.store.append([path])
 
 if __name__ == '__main__':
     app_window = Py7zip()
